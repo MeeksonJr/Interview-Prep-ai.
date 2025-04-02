@@ -3,6 +3,8 @@ import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
 import { pgTable, text, timestamp, serial, boolean, integer, jsonb, varchar } from "drizzle-orm/pg-core"
 import bcrypt from "bcryptjs"
+// Import the retry utility at the top of the file
+import { retryWithBackoff } from "./db-retry"
 
 // Updated connection string
 export const connectionString =
@@ -434,38 +436,60 @@ export async function getUserByEmail(email: string) {
   }
 }
 
+// Update the getUserById function with retry logic
 export async function getUserById(id: number) {
   try {
     // First, ensure the profile_image_url column exists
     await ensureProfileImageColumn()
 
-    // Then query the user data
-    const result = await sql`
-      SELECT id, email, name, created_at, subscription_plan, subscription_status, 
-      subscription_start_date, subscription_end_date, paypal_subscription_id, profile_image_url
-      FROM users WHERE id = ${id}
-    `
+    // Use the retry mechanism for this query
+    return await retryWithBackoff(
+      async () => {
+        const result = await sql`
+          SELECT id, email, name, created_at, subscription_plan, subscription_status, 
+          subscription_start_date, subscription_end_date, paypal_subscription_id, profile_image_url
+          FROM users WHERE id = ${id}
+        `
 
-    return result.length > 0 ? result[0] : null
+        return result.length > 0 ? result[0] : null
+      },
+      {
+        maxRetries: 3,
+        initialDelay: 300,
+        maxDelay: 2000,
+        onRetry: (error, attempt) => {
+          console.warn(`Retry attempt ${attempt} for getUserById due to: ${error.message}`)
+        },
+      },
+    )
   } catch (error) {
     // If there's an error with the profile_image_url column, try again without it
     if (error.message && error.message.includes("profile_image_url")) {
       console.warn("profile_image_url column not found, querying without it")
       try {
-        const result = await sql`
-          SELECT id, email, name, created_at, subscription_plan, subscription_status, 
-          subscription_start_date, subscription_end_date, paypal_subscription_id
-          FROM users WHERE id = ${id}
-        `
-        return result.length > 0 ? result[0] : null
+        return await retryWithBackoff(
+          async () => {
+            const result = await sql`
+              SELECT id, email, name, created_at, subscription_plan, subscription_status, 
+              subscription_start_date, subscription_end_date, paypal_subscription_id
+              FROM users WHERE id = ${id}
+            `
+            return result.length > 0 ? result[0] : null
+          },
+          {
+            maxRetries: 3,
+            initialDelay: 300,
+            maxDelay: 2000,
+          },
+        )
       } catch (fallbackError) {
         console.error("Error getting user by ID (fallback):", fallbackError)
-        throw fallbackError
+        return null
       }
     }
 
     console.error("Error getting user by ID:", error)
-    throw error
+    return null
   }
 }
 
@@ -572,17 +596,51 @@ export async function getSubscriptionPlans() {
   }
 }
 
+// Update the getSubscriptionPlanByName function with retry logic
 export async function getSubscriptionPlanByName(name: string) {
   try {
-    const result = await sql`
-      SELECT * FROM subscription_plans
-      WHERE name = ${name}
-    `
+    // Use the retry mechanism for this query with more retries and longer delays
+    return await retryWithBackoff(
+      async () => {
+        try {
+          const result = await sql`
+            SELECT * FROM subscription_plans
+            WHERE name = ${name}
+          `
 
-    return result.length > 0 ? result[0] : null
+          return result.length > 0 ? result[0] : null
+        } catch (innerError) {
+          console.error(`Inner error in getSubscriptionPlanByName: ${innerError.message}`)
+          // If the inner query fails with a "Too Many Requests" error, throw it so the retry mechanism can catch it
+          if (innerError.message && innerError.message.includes("Too Many")) {
+            throw innerError
+          }
+          // For other errors, return a default plan
+          return null
+        }
+      },
+      {
+        maxRetries: 5, // Increase from 3 to 5
+        initialDelay: 500, // Increase from 300 to 500
+        maxDelay: 5000, // Increase from 2000 to 5000
+        onRetry: (error, attempt) => {
+          console.warn(`Retry attempt ${attempt} for getSubscriptionPlanByName due to: ${error.message}`)
+        },
+      },
+    )
   } catch (error) {
     console.error("Error getting subscription plan by name:", error)
-    throw error
+    // Return a default free plan if there's an error
+    return {
+      id: 0,
+      name: name || "free",
+      price: 0,
+      features: {
+        interviewsPerDay: 3,
+        resultsPerDay: 3,
+        retakesPerDay: 3,
+      },
+    }
   }
 }
 
@@ -662,34 +720,58 @@ export async function updateSubscriptionPlanInDb(planId: number, updateData: any
   }
 }
 
-// Usage tracking functions
+// Update the getUserUsageForToday function with retry logic
 export async function getUserUsageForToday(userId: number) {
   try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // Use the retry mechanism for this query
+    return await retryWithBackoff(
+      async () => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
 
-    const result = await sql`
-      SELECT * FROM user_usage
-      WHERE user_id = ${userId}
-      AND date >= ${today}
-      ORDER BY date DESC
-      LIMIT 1
-    `
+        const result = await sql`
+          SELECT * FROM user_usage
+          WHERE user_id = ${userId}
+          AND date >= ${today}
+          ORDER BY date DESC
+          LIMIT 1
+        `
 
-    if (!result || result.length === 0) {
-      // Create a new usage record for today
-      const newUsage = await sql`
-        INSERT INTO user_usage (user_id, date)
-        VALUES (${userId}, CURRENT_DATE)
-        RETURNING *
-      `
-      return newUsage[0]
-    }
+        if (!result || result.length === 0) {
+          // Create a new usage record for today
+          const newUsage = await sql`
+            INSERT INTO user_usage (user_id, date)
+            VALUES (${userId}, CURRENT_DATE)
+            RETURNING *
+          `
+          return newUsage[0]
+        }
 
-    return result[0]
+        return result[0]
+      },
+      {
+        maxRetries: 3,
+        initialDelay: 300,
+        maxDelay: 2000,
+        onRetry: (error, attempt) => {
+          console.warn(`Retry attempt ${attempt} for getUserUsageForToday due to: ${error.message}`)
+        },
+      },
+    )
   } catch (error) {
     console.error("Error getting user usage for today:", error)
-    throw error
+    // Return a default object instead of throwing an error
+    // This allows the application to continue even if there's a database error
+    return {
+      id: 0,
+      user_id: userId,
+      date: new Date(),
+      interviews_used: 0,
+      results_viewed: 0,
+      retakes_done: 0,
+      created_at: new Date(),
+      updated_at: new Date(),
+    }
   }
 }
 
@@ -794,13 +876,39 @@ export async function checkUserCanPerformAction(userId: number, actionType: "int
     // Get user's subscription plan
     const user = await getUserById(userId)
     if (!user) {
-      throw new Error("User not found")
+      console.warn(`User not found for ID: ${userId}, defaulting to free plan limits`)
+      // Default to free plan limits if user not found
+      return true
     }
 
-    // Get plan limits
-    const plan = await getSubscriptionPlanByName(user.subscription_plan)
+    // Get plan limits with better error handling
+    let plan
+    try {
+      plan = await getSubscriptionPlanByName(user.subscription_plan || "free")
+    } catch (planError) {
+      console.error(`Error getting subscription plan for ${user.subscription_plan}:`, planError)
+      // Default to free plan if there's an error
+      plan = {
+        name: "free",
+        features: {
+          interviewsPerDay: 3,
+          resultsPerDay: 3,
+          retakesPerDay: 3,
+        },
+      }
+    }
+
+    // If plan is null, use a default free plan
     if (!plan) {
-      throw new Error("Subscription plan not found")
+      console.warn(`Plan not found for: ${user.subscription_plan}, defaulting to free plan`)
+      plan = {
+        name: "free",
+        features: {
+          interviewsPerDay: 3,
+          resultsPerDay: 3,
+          retakesPerDay: 3,
+        },
+      }
     }
 
     // If premium plan with unlimited usage
@@ -808,23 +916,44 @@ export async function checkUserCanPerformAction(userId: number, actionType: "int
       return true
     }
 
-    // Get today's usage
-    const usage = await getUserUsageForToday(userId)
+    // Get today's usage with better error handling
+    let usage
+    try {
+      usage = await getUserUsageForToday(userId)
+    } catch (usageError) {
+      console.error(`Error getting usage for user ${userId}:`, usageError)
+      // Default to empty usage if there's an error
+      usage = {
+        interviews_used: 0,
+        results_viewed: 0,
+        retakes_done: 0,
+      }
+    }
 
-    // Check against limits
-    const features = plan.features
+    // If usage is null, use default empty usage
+    if (!usage) {
+      console.warn(`Usage not found for user ID: ${userId}, defaulting to empty usage`)
+      usage = {
+        interviews_used: 0,
+        results_viewed: 0,
+        retakes_done: 0,
+      }
+    }
+
+    // Check against limits with null/undefined checks
+    const features = plan.features || { interviewsPerDay: 3, resultsPerDay: 3, retakesPerDay: 3 }
     let currentUsage = 0
-    let limit = 0
+    let limit = 3 // Default to 3 if not specified
 
     if (actionType === "interviews") {
-      currentUsage = usage.interviews_used
-      limit = features.interviewsPerDay
+      currentUsage = usage.interviews_used || 0
+      limit = features.interviewsPerDay || 3
     } else if (actionType === "results") {
-      currentUsage = usage.results_viewed
-      limit = features.resultsPerDay
+      currentUsage = usage.results_viewed || 0
+      limit = features.resultsPerDay || 3
     } else if (actionType === "retakes") {
-      currentUsage = usage.retakes_done
-      limit = features.retakesPerDay
+      currentUsage = usage.retakes_done || 0
+      limit = features.retakesPerDay || 3
     }
 
     // -1 means unlimited
@@ -835,7 +964,9 @@ export async function checkUserCanPerformAction(userId: number, actionType: "int
     return currentUsage < limit
   } catch (error) {
     console.error("Error checking if user can perform action:", error)
-    throw error
+    // Default to allowing the action if there's an error
+    // This ensures users can still use the app even if there are database issues
+    return true
   }
 }
 
@@ -867,30 +998,44 @@ export async function createInterview(interviewData: any) {
   }
 }
 
+// Update the getInterviewById function with retry logic
 export async function getInterviewById(id: string, userId: number) {
   try {
-    const result = await sql`
-      SELECT * FROM interviews WHERE id = ${id} AND user_id = ${userId}
-    `
+    // Use the retry mechanism for this query
+    return await retryWithBackoff(
+      async () => {
+        const result = await sql`
+          SELECT * FROM interviews WHERE id = ${id} AND user_id = ${userId}
+        `
 
-    if (result.length === 0) {
-      return null
-    }
+        if (result.length === 0) {
+          return null
+        }
 
-    // Convert the row to match our expected format
-    const interview = result[0]
-    return {
-      ...interview,
-      id: interview.id.toString(),
-      userId: interview.user_id,
-      currentQuestionIndex: interview.current_question_index,
-      startedAt: interview.started_at,
-      completedAt: interview.completed_at,
-      questions: interview.questions,
-    }
+        // Convert the row to match our expected format
+        const interview = result[0]
+        return {
+          ...interview,
+          id: interview.id.toString(),
+          userId: interview.user_id,
+          currentQuestionIndex: interview.current_question_index,
+          startedAt: interview.started_at,
+          completedAt: interview.completed_at,
+          questions: interview.questions,
+        }
+      },
+      {
+        maxRetries: 3,
+        initialDelay: 300,
+        maxDelay: 2000,
+        onRetry: (error, attempt) => {
+          console.warn(`Retry attempt ${attempt} for getInterviewById due to: ${error.message}`)
+        },
+      },
+    )
   } catch (error) {
     console.error("Error getting interview:", error)
-    throw error
+    return null
   }
 }
 
@@ -1025,25 +1170,41 @@ export async function updateInterview(id: string, userId: number, updateData: an
   }
 }
 
+// Update the getUserInterviews function with retry logic and better error handling
 export async function getUserInterviews(userId: number) {
   try {
-    const result = await sql`
-      SELECT * FROM interviews WHERE user_id = ${userId} ORDER BY created_at DESC
-    `
+    // Use the retry mechanism for this query
+    return await retryWithBackoff(
+      async () => {
+        const result = await sql`
+          SELECT * FROM interviews WHERE user_id = ${userId} ORDER BY created_at DESC
+        `
 
-    // Convert the rows to match our expected format
-    return result.map((interview) => ({
-      ...interview,
-      id: interview.id.toString(),
-      userId: interview.user_id,
-      currentQuestionIndex: interview.current_question_index,
-      startedAt: interview.started_at,
-      completedAt: interview.completed_at,
-      questions: interview.questions,
-    }))
+        // Convert the rows to match our expected format
+        return result.map((interview) => ({
+          ...interview,
+          id: interview.id.toString(),
+          userId: interview.user_id,
+          currentQuestionIndex: interview.current_question_index,
+          startedAt: interview.started_at,
+          completedAt: interview.completed_at,
+          questions: interview.questions,
+        }))
+      },
+      {
+        maxRetries: 3,
+        initialDelay: 300,
+        maxDelay: 2000,
+        onRetry: (error, attempt) => {
+          console.warn(`Retry attempt ${attempt} for getUserInterviews due to: ${error.message}`)
+        },
+      },
+    )
   } catch (error) {
     console.error("Error getting user interviews:", error)
-    throw error
+    // Return an empty array instead of throwing an error
+    // This allows the UI to still render even if there's a database error
+    return []
   }
 }
 

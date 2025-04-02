@@ -56,6 +56,8 @@ import {
 import { Label } from "@/components/ui/label"
 // Add the import for the GeminiApiChecker component
 import { GeminiApiChecker } from "@/components/gemini-api-checker"
+// Import the debug component at the top
+import { DebugUserData } from "@/components/debug-user-data"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -98,7 +100,7 @@ export default function DashboardPage() {
     }
   }, [user, activeTab, communityTab, filters])
 
-  // Update the fetchData function in the dashboard page
+  // Update the fetchData function in the dashboard page to handle errors better
   const fetchData = async () => {
     if (!user) return
 
@@ -115,6 +117,8 @@ export default function DashboardPage() {
         console.error("Error fetching interviews:", interviewError)
         // Continue with empty interviews array
         setInterviews([])
+        // Show a non-blocking error message
+        setError("Could not load your interviews. Please try again later.")
       }
 
       // Add error handling for checkUserActionAllowedAction
@@ -446,8 +450,12 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm font-medium mb-1">Current Plan</p>
               <div className="flex items-center">
-                <span className="text-xl font-bold capitalize">{user?.subscriptionPlan || "Free"}</span>
-                {user?.subscriptionPlan === "premium" && (
+                <span className="text-xl font-bold capitalize">
+                 {/* @ts-ignore */}
+                  {user?.subscriptionPlan || user?.subscription_plan || "Free"}
+                </span>
+                 {/*  @ts-ignore */}
+                {(user?.subscriptionPlan === "premium" || user?.subscription_plan === "premium") && (
                   <span className="ml-2 px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-xs rounded-full">
                     Premium
                   </span>
@@ -479,11 +487,16 @@ export default function DashboardPage() {
 
                 <div>
                   <p className="text-sm font-medium mb-1">Upgrade for More</p>
-                  {user.subscriptionPlan === "free" ? (
+                  {user.subscriptionPlan === "free" &&
+                   // @ts-ignore
+                  user.subscription_plan !== "pro" &&
+                   // @ts-ignore
+                  user.subscription_plan !== "premium" ? (
                     <Button asChild size="sm" className="bg-white text-black hover:bg-gray-200">
                       <Link href="/subscription">Upgrade Now</Link>
                     </Button>
-                  ) : user.subscriptionPlan === "pro" ? (
+                     // @ts-ignore
+                  ) : user.subscriptionPlan === "pro" || user.subscription_plan === "pro" ? (
                     <Button asChild size="sm" className="bg-white text-black hover:bg-gray-200">
                       <Link href="/subscription">Go Premium</Link>
                     </Button>
@@ -1139,6 +1152,9 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* Add the debug component */}
+      <DebugUserData />
     </div>
   )
 }

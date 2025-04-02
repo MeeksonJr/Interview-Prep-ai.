@@ -11,7 +11,9 @@ interface User {
   email: string
   name?: string
   subscriptionPlan?: string
+  subscription_plan?: string
   subscriptionStatus?: string
+  subscription_status?: string
 }
 
 interface AuthContextType {
@@ -42,18 +44,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<Error | null>(null)
   const router = useRouter()
 
+  // Function to normalize user data to ensure both field naming conventions are available
+  const normalizeUserData = (userData: any): User => {
+    if (!userData) return userData
+
+    // Ensure both camelCase and snake_case versions of subscription fields exist
+    return {
+      ...userData,
+      subscriptionPlan: userData.subscriptionPlan || userData.subscription_plan || "free",
+      subscription_plan: userData.subscription_plan || userData.subscriptionPlan || "free",
+      subscriptionStatus: userData.subscriptionStatus || userData.subscription_status || "active",
+      subscription_status: userData.subscription_status || userData.subscriptionStatus || "active",
+    }
+  }
+
   // Function to set auth state (used after login/signup)
   const setAuthState = (token: string, user: User) => {
     console.log("Setting auth state with token and user:", { token: token.substring(0, 10) + "...", user })
 
+    const normalizedUser = normalizeUserData(user)
+
     // Save to state
     setToken(token)
-    setUser(user)
+    setUser(normalizedUser)
 
     // Save to local storage
     try {
       localStorage.setItem("auth_token", token)
-      localStorage.setItem("user", JSON.stringify(user))
+      localStorage.setItem("user", JSON.stringify(normalizedUser))
     } catch (error) {
       console.error("Error saving auth state to localStorage:", error)
     }
@@ -104,13 +122,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (userData) {
           console.log("Token verified, updated user data:", userData)
-          // Update state with fresh user data
-          setUser(userData)
+
+          // Normalize and update state with fresh user data
+          const normalizedUser = normalizeUserData(userData)
+          setUser(normalizedUser)
           setToken(currentToken)
 
           // Update local storage with fresh user data
           try {
-            localStorage.setItem("user", JSON.stringify(userData))
+            localStorage.setItem("user", JSON.stringify(normalizedUser))
             console.log("Updated user data in localStorage")
           } catch (error) {
             console.error("Error updating user in localStorage:", error)
@@ -160,10 +180,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const verifiedUser = await verifyAuthToken(storedToken)
 
               if (verifiedUser) {
-                // Token is valid, set auth state
+                // Token is valid, set auth state with normalized data
                 console.log("Token verified successfully, setting auth state")
                 setToken(storedToken)
-                setUser(verifiedUser)
+                setUser(normalizeUserData(verifiedUser))
               } else {
                 // Token is invalid, clear auth state
                 console.log("Token verification failed, clearing auth state")
@@ -174,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               // Continue with stored user data for now
               console.log("Using stored user data despite verification error")
               setToken(storedToken)
-              setUser(userData)
+              setUser(normalizeUserData(userData))
             }
           } catch (parseError) {
             console.error("Error parsing stored user data:", parseError)

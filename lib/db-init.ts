@@ -25,8 +25,13 @@ export async function initializeDatabase() {
 
     // Run community table migration with explicit error handling
     try {
-      await migrateCommunityTable()
-      results.community = true
+      const communityResult = await migrateCommunityTable()
+      results.community = communityResult.success
+      if (!communityResult.success) {
+        console.error("Community table migration failed:", communityResult.error)
+      } else {
+        console.log("Community table migration completed successfully")
+      }
     } catch (communityError) {
       console.error("Error during community table migration:", communityError)
       // Continue with initialization even if community migration fails

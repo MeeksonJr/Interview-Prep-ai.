@@ -3,7 +3,7 @@
 import { getUserById as getDbUserById, updateUser, deleteUser } from "@/lib/db"
 
 // Update user profile
-export async function updateUserProfile(userId: number, formData: FormData) {
+export async function updateUserProfile(userId: number, formData: FormData | { name: string }) {
   try {
     console.log(`Updating profile for user ${userId}`)
 
@@ -13,10 +13,20 @@ export async function updateUserProfile(userId: number, formData: FormData) {
       return { success: false, error: "User not found" }
     }
 
-    // Extract form data
-    const name = formData.get("name") as string
-    const email = formData.get("email") as string
-    const profileImage = formData.get("profileImage") as File | null
+    // Extract data based on whether formData is FormData or a plain object
+    let name: string
+    let email: string | null = null
+    let profileImage: File | null = null
+
+    if (formData instanceof FormData) {
+      // It's a FormData object
+      name = formData.get("name") as string
+      email = formData.get("email") as string
+      profileImage = formData.get("profileImage") as File | null
+    } else {
+      // It's a plain object
+      name = formData.name
+    }
 
     // In a real app, you would upload the profile image to a storage service
     // and get back a URL to store in the database

@@ -46,3 +46,10 @@ export interface AnswerEvaluationParams {
   type: string
 }
 
+export interface EvaluationResult {
+  score: number
+  strengths: string[]
+  improvements: string[]
+  detailedFeedback: string
+}
+

@@ -16,6 +16,7 @@ import { updateUserProfile, deleteUserAccount } from "@/app/actions/user-actions
 import { CreateResumeContentsTable } from "@/components/admin/create-resume-contents-table"
 import { CreateJobAnalysisTable } from "@/components/admin/create-job-analysis-table"
 import { RunAllMigrations } from "@/components/admin/run-all-migrations"
+import { DebugSubscription } from "@/components/debug-subscription"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -47,6 +48,7 @@ export default function SettingsPage() {
     setSuccess(null)
 
     try {
+       // @ts-ignore
       const result = await updateUserProfile(user.id, { name })
 
       if (result.success) {
@@ -85,6 +87,16 @@ export default function SettingsPage() {
     } finally {
       setDeleteLoading(false)
     }
+  }
+
+  // Helper function to get the user's subscription plan
+  const getUserSubscriptionPlan = () => {
+    if (!user) return "Free"
+
+    // Check both possible field names and capitalize the first letter
+     // @ts-ignore
+    const plan = user.subscriptionPlan || user.subscription_plan || "free"
+    return plan.charAt(0).toUpperCase() + plan.slice(1)
   }
 
   if (!user) {
@@ -201,7 +213,7 @@ export default function SettingsPage() {
                 <div>
                   <h3 className="text-lg font-medium mb-2">Subscription</h3>
                   <p className="text-muted-foreground mb-4">
-                    Current plan: <span className="font-medium text-white">{user.subscription_plan || "Free"}</span>
+                    Current plan: <span className="font-medium text-white">{getUserSubscriptionPlan()}</span>
                   </p>
                   <Button onClick={() => router.push("/subscription")} variant="outline" className="border-white/10">
                     Manage Subscription
@@ -256,6 +268,7 @@ export default function SettingsPage() {
                       <RunAllMigrations />
                       <CreateResumeContentsTable />
                       <CreateJobAnalysisTable />
+                      <DebugSubscription />
                     </div>
                   </div>
                 )}

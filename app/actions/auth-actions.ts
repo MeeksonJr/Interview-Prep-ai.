@@ -137,10 +137,20 @@ export async function verifyAuthToken(token: string) {
     }
 
     console.log("[SERVER] Token verified successfully for user:", user.id)
+
+    // Return user data with both naming conventions for subscription fields
+    const plan = user.subscription_plan || "free"
+    const status = user.subscription_status || "active"
+
     return {
       id: user.id,
       email: user.email,
       name: user.name,
+      // Include both naming conventions
+      subscriptionPlan: plan,
+      subscription_plan: plan,
+      subscriptionStatus: status,
+      subscription_status: status,
     }
   } catch (error) {
     console.error("[SERVER] Error verifying token:", error)

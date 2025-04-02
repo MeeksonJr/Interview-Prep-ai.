@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
-
 // This function should only be called server-side
 export async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
   if (!apiKey) return false

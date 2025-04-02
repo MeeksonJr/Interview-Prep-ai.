@@ -1,4 +1,15 @@
 import { sql } from "@/lib/db"
+import { migrateCommunityTable } from "./db-migration-community"
+
+// Function to create the community_interviews table if it doesn't exist
+export async function createCommunityInterviewsTable() {
+  try {
+    return await migrateCommunityTable()
+  } catch (error) {
+    console.error("Error creating community_interviews table:", error)
+    return { success: false, error }
+  }
+}
 
 // Get trending interviews (most viewed)
 export async function getTrendingInterviews(limit = 10, offset = 0, filters: any = {}) {
@@ -219,6 +230,20 @@ export async function getRecentInterviews(limit = 10, offset = 0, filters: any =
 // Get all community interviews
 export async function getCommunityInterviews(limit = 20, offset = 0, filters: any = {}) {
   try {
+    // First check if the community_interviews table exists
+    const tableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'community_interviews'
+      );
+    `
+
+    // If table doesn't exist, return empty array
+    if (!tableExists[0].exists) {
+      console.log("community_interviews table doesn't exist yet, returning empty community interviews")
+      return []
+    }
+
     let query = `
       SELECT i.*, u.name as user_name, u.profile_image_url, ci.created_at as shared_at
       FROM community_interviews ci
@@ -476,6 +501,9 @@ export async function addInterviewToCommunity(
   tags?: string[],
 ) {
   try {
+    // First, ensure the community_interviews table exists
+    await createCommunityInterviewsTable()
+
     // Check if already in community
     const existingEntry = await sql`
       SELECT * FROM community_interviews
@@ -507,6 +535,9 @@ export async function addInterviewToCommunity(
 // Remove interview from community
 export async function removeInterviewFromCommunity(interviewId: number, userId: number) {
   try {
+    // First, ensure the community_interviews table exists
+    await createCommunityInterviewsTable()
+
     await sql`
       DELETE FROM community_interviews
       WHERE interview_id = ${interviewId} AND user_id = ${userId}
@@ -523,6 +554,22 @@ export async function removeInterviewFromCommunity(interviewId: number, userId: 
 export async function updateInterviewPublicStatus(interviewId: string, userId: number, isPublic: boolean) {
   try {
     console.log(`Updating interview ${interviewId} public status to ${isPublic} for user ${userId}`)
+
+    // Check if the is_public column exists in the interviews table
+    const columnExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.columns 
+        WHERE table_name = 'interviews' AND column_name = 'is_public'
+      ) as exists
+    `
+
+    if (!columnExists[0].exists) {
+      console.log("Adding is_public column to interviews table")
+      await sql`
+        ALTER TABLE interviews 
+        ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE
+      `
+    }
 
     // First update the is_public flag
     let result
@@ -559,6 +606,20 @@ export async function updateInterviewPublicStatus(interviewId: string, userId: n
 // Get shared interviews for a user
 export async function getSharedInterviews(userId: number) {
   try {
+    // First check if the community_interviews table exists
+    const tableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'community_interviews'
+      );
+    `
+
+    // If table doesn't exist, return empty array
+    if (!tableExists[0].exists) {
+      console.log("community_interviews table doesn't exist yet, returning empty shared interviews")
+      return []
+    }
+
     const result = await sql`
       SELECT i.*, u.name as user_name, u.profile_image_url
       FROM interviews i
@@ -577,6 +638,20 @@ export async function getSharedInterviews(userId: number) {
 // Check if user has shared an interview
 export async function hasUserSharedInterview(userId: number, interviewId: number) {
   try {
+    // First check if the community_interviews table exists
+    const tableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'community_interviews'
+      );
+    `
+
+    // If table doesn't exist, return false
+    if (!tableExists[0].exists) {
+      console.log("community_interviews table doesn't exist yet, returning false for shared interview check")
+      return false
+    }
+
     const result = await sql`
       SELECT * FROM community_interviews
       WHERE user_id = ${userId} AND interview_id = ${interviewId}
