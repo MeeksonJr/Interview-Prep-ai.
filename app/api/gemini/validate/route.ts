@@ -32,7 +32,7 @@ async function getActiveModelName(apiKey: string): Promise<string> {
     } catch (flashError) {
       // Try pro model as fallback
       try {
-        const proModel = genAI.getGenerativeModel({ model: "gemini-pro" })
+        const proModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
         await proModel.generateContent("test")
         return "gemini-pro"
       } catch (proError) {

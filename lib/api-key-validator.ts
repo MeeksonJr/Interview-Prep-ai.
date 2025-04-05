@@ -18,16 +18,16 @@ export async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
     } catch (flashError) {
       console.error("Error validating with gemini-1.5-flash:", flashError)
 
-      // Fall back to gemini-pro if flash isn't available
+      // Fall back to gemini-2.0-flash if flash isn't available
       try {
-        const fallbackModel = genAI.getGenerativeModel({ model: "gemini-pro" })
+        const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
         const fallbackResult = await fallbackModel.generateContent("Test")
         const fallbackResponse = await fallbackResult.response
         const fallbackText = fallbackResponse.text()
 
         return fallbackText.length > 0
       } catch (proError) {
-        console.error("Error validating with gemini-pro:", proError)
+        console.error("Error validating with gemini-2.0-flash:", proError)
         return false
       }
     }

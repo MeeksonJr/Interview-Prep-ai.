@@ -1,5 +1,6 @@
-import { generateText } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { GoogleGenerativeAI } from "@google/generative-ai"
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string) // Ensure this env variable is set on the server
 
 export async function generateInterviewFromJobDescription({
   jobDescription,
@@ -46,16 +47,16 @@ export async function generateInterviewFromJobDescription({
       Only return the JSON object, nothing else.
     `
 
-    const { text } = await generateText({
-      model: openai("gpt-4o"),
-      prompt,
-    })
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+    const result = await model.generateContent(prompt)
+    const response = await result.response
+    const text = response.text()
 
     try {
       const parsedResponse = JSON.parse(text)
       return parsedResponse
     } catch (parseError) {
-      console.error("Error parsing AI response:", parseError)
+      console.error("Error parsing Gemini response:", parseError)
       throw new Error("Failed to parse interview questions")
     }
   } catch (error) {

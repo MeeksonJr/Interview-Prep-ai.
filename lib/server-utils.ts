@@ -7,6 +7,6 @@
  */
 export function getGeminiApiKey(): string {
   // We're checking for both environment variable names to support transition
-  return process.env.GEMINI_API_KEY || "AIzaSyCqzbmpbIvrk0AgOmqNKKbNGhC-DqV21J4"
+  return process.env.NEXT_PUBLIC_GEMINI_API_KEY || "AIzaSyCqzbmpbIvrk0AgOmqNKKbNGhC-DqV21J4"
 }
 

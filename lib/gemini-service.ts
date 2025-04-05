@@ -40,9 +40,9 @@ function getModel() {
 
     // Fall back to gemini-pro if the flash model isn't available
     try {
-      console.log("Falling back to gemini-pro model")
+      console.log("Falling back to gemini-2.0-flash model")
       return genAI.getGenerativeModel({
-        model: "gemini-pro",
+        model: "gemini-2.0-flash",
         safetySettings,
       })
     } catch (fallbackError) {
