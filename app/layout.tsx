@@ -14,6 +14,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Interview Prep AI",
   description: "AI-powered interview preparation platform",
+    generator: 'v0.dev'
 }
 
 // Update the RootLayout component to include the MainNavigation
@@ -42,3 +43,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   )
 }
 
+
+
+import './globals.css'

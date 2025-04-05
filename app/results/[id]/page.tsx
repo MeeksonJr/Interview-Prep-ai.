@@ -50,7 +50,6 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         }
 
         // Check if the interview is completed
-         // @ts-ignore
         if (!interviewData.completed) {
           console.log("Interview not completed, redirecting to interview page")
           router.push(`/interview/${params.id}`)
@@ -76,9 +75,8 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           // Continue anyway - we'll assume the user is allowed if we can't check
           setUsageLimits({ allowed: true })
         }
- // @ts-ignore
+
         setInterview({
-           // @ts-ignore
           id: interviewData.id,
           ...interviewData,
         })
@@ -366,9 +364,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
                     <CardContent>
                       <ul className="space-y-2">
                         {interview.questions
-                         // @ts-ignore
                           .filter((q) => q.feedback?.strengths?.length > 0)
-                           // @ts-ignore
                           .flatMap((q) => q.feedback.strengths)
                           .slice(0, 3)
                           .map((strength, index) => (
@@ -390,9 +386,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
                     <CardContent>
                       <ul className="space-y-2">
                         {interview.questions
-                         // @ts-ignore
                           .filter((q) => q.feedback?.improvements?.length > 0)
-                           // @ts-ignore
                           .flatMap((q) => q.feedback.improvements)
                           .slice(0, 3)
                           .map((improvement, index) => (

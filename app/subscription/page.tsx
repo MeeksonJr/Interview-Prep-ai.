@@ -28,7 +28,6 @@ export default function SubscriptionPage() {
       try {
         const result = await getSubscriptionPlansAction()
         if (result.success) {
-           // @ts-ignore
           setPlans(result.plans)
         } else {
           setError(result.error || "Failed to load subscription plans")
@@ -42,7 +41,6 @@ export default function SubscriptionPage() {
 
     fetchPlans()
     // Use either subscriptionPlan or subscription_plan, whichever is available
-     // @ts-ignore
     setCurrentPlan(user.subscriptionPlan || user.subscription_plan || "free")
   }, [user, router])
 
@@ -103,7 +101,6 @@ export default function SubscriptionPage() {
             const features = plan.features || {}
             // Check both possible field names for the current plan
             const isCurrent =
-             // @ts-ignore
               currentPlan === plan.name || user?.subscriptionPlan === plan.name || user?.subscription_plan === plan.name
 
             return (

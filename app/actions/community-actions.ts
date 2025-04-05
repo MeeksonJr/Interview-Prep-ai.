@@ -145,7 +145,6 @@ export async function checkUserLikedInterview(userId: number, interviewId: numbe
 
 export async function fetchSavedInterviews(userId: number) {
   try {
-    // @ts-ignore
     let interviews = []
 
     try {
@@ -154,7 +153,7 @@ export async function fetchSavedInterviews(userId: number) {
       console.error("Error fetching saved interviews from database:", dbError)
       interviews = []
     }
-// @ts-ignore
+
     return { success: true, interviews }
   } catch (error: any) {
     console.error("Error fetching saved interviews:", error)
@@ -279,7 +278,6 @@ export async function shareInterviewAction(interviewId: string, userId: number, 
 
 export async function fetchSharedInterviews(userId: number) {
   try {
-    // @ts-ignore
     let interviews = []
 
     try {
@@ -288,7 +286,7 @@ export async function fetchSharedInterviews(userId: number) {
       console.error("Error fetching shared interviews from database:", dbError)
       interviews = []
     }
-// @ts-ignore
+
     return { success: true, interviews }
   } catch (error: any) {
     console.error("Error fetching shared interviews:", error)

@@ -2,18 +2,19 @@
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai"
 import type { EvaluationResult } from "@/lib/types"
-
-// Initialize the Google Generative AI client
-const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY
+import { getGeminiApiKey } from "@/lib/server-utils"
 
 // Function to generate text with Gemini
 export async function generateText(prompt: string): Promise<string> {
-  if (!API_KEY) {
-    console.error("Gemini API key is not set")
-    throw new Error("Gemini API key is not set")
-  }
-
   try {
+    // Use the server utility to get the API key securely
+    const API_KEY = getGeminiApiKey()
+
+    if (!API_KEY) {
+      console.error("Gemini API key is not set")
+      throw new Error("Gemini API key is not set")
+    }
+
     const genAI = new GoogleGenerativeAI(API_KEY)
 
     // For text-only input, use the gemini-pro model
@@ -57,6 +58,13 @@ export async function evaluateAnswer(
   experienceLevel: string,
 ): Promise<EvaluationResult> {
   try {
+    // Get the API key securely using the server utility
+    const API_KEY = getGeminiApiKey()
+
+    if (!API_KEY) {
+      throw new Error("Gemini API key is not configured")
+    }
+
     // Prepare the prompt for Gemini
     const prompt = `
     You are an expert interviewer evaluating a candidate's response to a job interview question.
@@ -125,7 +133,7 @@ export async function evaluateAnswer(
 
     for (const modelName of models) {
       try {
-        const genAI = new GoogleGenerativeAI(API_KEY!)
+        const genAI = new GoogleGenerativeAI(API_KEY)
         const model = genAI.getGenerativeModel({ model: modelName })
         const result = await model.generateContent(prompt)
         const response = await result.response
@@ -146,7 +154,6 @@ export async function evaluateAnswer(
 
         // Convert to our application's format
         return {
-          // @ts-ignore
           criteria: {
             relevance: {
               score: evaluation.criteria.relevance.score,
@@ -194,7 +201,6 @@ export async function evaluateAnswer(
           const evaluation = JSON.parse(jsonStr)
 
           return {
-            // @ts-ignore
             criteria: {
               relevance: {
                 score: evaluation.criteria.relevance.score,
@@ -242,12 +248,15 @@ export async function evaluateAnswer(
 
 // Add the missing generateAnalysis function
 export async function generateAnalysis(prompt: string): Promise<string> {
-  if (!API_KEY) {
-    console.error("Gemini API key is not set")
-    throw new Error("Gemini API key is not set")
-  }
-
   try {
+    // Get the API key securely using the server utility
+    const API_KEY = getGeminiApiKey()
+
+    if (!API_KEY) {
+      console.error("Gemini API key is not set")
+      throw new Error("Gemini API key is not set")
+    }
+
     const genAI = new GoogleGenerativeAI(API_KEY)
 
     // For text-only input, use the gemini-pro model
@@ -389,7 +398,6 @@ function ruleBasedEvaluation(answer: string, question: string): EvaluationResult
   const overallScore = Math.floor((lengthScore + relevanceScore + structureScore) / 3)
 
   return {
-    // @ts-ignore
     criteria: {
       relevance: {
         score: relevanceScore,

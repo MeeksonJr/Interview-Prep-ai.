@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { migrateDatabase } from "@/lib/db-migration"
 import { migrateResumeTable } from "@/lib/db-migration-resume"
- // @ts-ignore
 import { migrateResumeContentsTable } from "@/lib/db-migration-resume-contents"
 import { migrateJobAnalysisTable } from "@/lib/db-migration-job-analysis"
 import { migrateCommunityTable } from "@/lib/db-migration-community"

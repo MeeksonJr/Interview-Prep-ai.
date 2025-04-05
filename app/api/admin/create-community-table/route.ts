@@ -15,7 +15,6 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-           // @ts-ignore
           error: result.error?.message || "Failed to create community interviews table",
         },
         { status: 500 },

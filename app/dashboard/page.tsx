@@ -451,10 +451,8 @@ export default function DashboardPage() {
               <p className="text-sm font-medium mb-1">Current Plan</p>
               <div className="flex items-center">
                 <span className="text-xl font-bold capitalize">
-                 {/* @ts-ignore */}
                   {user?.subscriptionPlan || user?.subscription_plan || "Free"}
                 </span>
-                 {/*  @ts-ignore */}
                 {(user?.subscriptionPlan === "premium" || user?.subscription_plan === "premium") && (
                   <span className="ml-2 px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-xs rounded-full">
                     Premium
@@ -488,14 +486,11 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-sm font-medium mb-1">Upgrade for More</p>
                   {user.subscriptionPlan === "free" &&
-                   // @ts-ignore
                   user.subscription_plan !== "pro" &&
-                   // @ts-ignore
                   user.subscription_plan !== "premium" ? (
                     <Button asChild size="sm" className="bg-white text-black hover:bg-gray-200">
                       <Link href="/subscription">Upgrade Now</Link>
                     </Button>
-                     // @ts-ignore
                   ) : user.subscriptionPlan === "pro" || user.subscription_plan === "pro" ? (
                     <Button asChild size="sm" className="bg-white text-black hover:bg-gray-200">
                       <Link href="/subscription">Go Premium</Link>

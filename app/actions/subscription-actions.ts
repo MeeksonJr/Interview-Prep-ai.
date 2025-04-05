@@ -3,230 +3,179 @@
 import {
   getUserById,
   getSubscriptionPlans,
-  updateSubscriptionPlanInDb,
-  updateUserSubscription,
   getUserUsageForToday,
   checkUserCanPerformAction,
+  updateUserSubscription,
   incrementUserUsage,
 } from "@/lib/db"
-import PayPalService from "@/lib/paypal-service"
+import { createPayPalSubscription } from "@/lib/paypal-service"
 
-// Get subscription plans
+// Add the missing createPayPalSubscriptionAction function
+export async function createPayPalSubscriptionAction(userId: number, planName: string) {
+  try {
+    // Get user details
+    const user = await getUserById(userId)
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found",
+      }
+    }
+
+    // Get subscription plans
+    const plans = await getSubscriptionPlans()
+    const plan = plans.find((p) => p.name === planName)
+    if (!plan) {
+      return {
+        success: false,
+        error: "Subscription plan not found",
+      }
+    }
+
+    // Create PayPal subscription
+    try {
+      const subscription = await createPayPalSubscription(plan.paypal_plan_id, user.email, user.name || user.email)
+
+      // Return the approval URL for the user to complete the subscription
+      return {
+        success: true,
+        subscriptionId: subscription.id,
+        approvalUrl: subscription.links.find((link: any) => link.rel === "approve")?.href,
+      }
+    } catch (error: any) {
+      console.error("Error creating PayPal subscription:", error)
+      return {
+        success: false,
+        error: error.message || "Failed to create subscription",
+      }
+    }
+  } catch (error: any) {
+    console.error("Error in createPayPalSubscriptionAction:", error)
+    return {
+      success: false,
+      error: "An unexpected error occurred",
+    }
+  }
+}
+
+// Add the missing getSubscriptionPlansAction function
 export async function getSubscriptionPlansAction() {
   try {
     const plans = await getSubscriptionPlans()
-    return { success: true, plans }
+    return {
+      success: true,
+      plans,
+    }
   } catch (error: any) {
     console.error("Error getting subscription plans:", error)
-    return { success: false, error: error.message }
+    return {
+      success: false,
+      error: error.message || "Failed to load subscription plans",
+    }
   }
 }
 
-// Create a PayPal subscription
-export async function createPayPalSubscriptionAction(userId: number, planName: string) {
-  try {
-    console.log(`Creating PayPal subscription for user ${userId} with plan ${planName}`)
-
-    // Get user details
-    const user = await getUserById(userId)
-    if (!user) {
-      return { success: false, error: "User not found" }
-    }
-
-    // Get subscription plan details
-    const plans = await getSubscriptionPlans()
-    const plan = plans.find((p) => p.name === planName)
-
-    if (!plan) {
-      return { success: false, error: "Subscription plan not found" }
-    }
-
-    // Check if plan already has a PayPal plan ID
-    let paypalPlanId = plan.paypal_plan_id
-
-    if (!paypalPlanId) {
-      try {
-        console.log("No PayPal plan ID found, creating new PayPal product and plan")
-
-        // Create a product in PayPal
-        const product = await PayPalService.createPayPalProduct(
-          `Interview Prep AI ${plan.name.charAt(0).toUpperCase() + plan.name.slice(1)} Plan`,
-          plan.description || `Interview Prep AI ${plan.name} subscription plan`,
-        )
-
-        console.log("Created PayPal product:", product.id)
-
-        // Create a plan in PayPal
-        const paypalPlan = await PayPalService.createPayPalPlan(
-          product.id,
-          `${plan.name.charAt(0).toUpperCase() + plan.name.slice(1)} Plan`,
-          plan.description || `Interview Prep AI ${plan.name} subscription plan`,
-          plan.price,
-          plan.interval.toUpperCase(),
-        )
-
-        console.log("Created PayPal plan:", paypalPlan.id)
-
-        paypalPlanId = paypalPlan.id
-
-        // Update the plan in our database with the PayPal plan ID
-        try {
-          await updateSubscriptionPlanInDb(plan.id, {
-            paypal_plan_id: paypalPlanId,
-          })
-          console.log("Updated subscription plan with PayPal plan ID:", paypalPlanId)
-        } catch (dbError) {
-          console.error("Failed to update subscription plan in database:", dbError)
-          // Continue anyway - we'll use the PayPal plan ID we just created
-        }
-      } catch (paypalError) {
-        console.error("PayPal API error:", paypalError)
-        return {
-          success: false,
-          error: "Failed to create PayPal plan. Please try again later or contact support.",
-        }
-      }
-    }
-
-    // Create a subscription in PayPal
-    try {
-      // If we still don't have a plan ID, return an error
-      if (!paypalPlanId) {
-        console.log("No PayPal plan ID available, cannot create subscription")
-        return {
-          success: false,
-          error: "Unable to create subscription plan. Please try again later or contact support.",
-        }
-      }
-
-      console.log("Creating PayPal subscription with plan ID:", paypalPlanId)
-
-      const subscription = await PayPalService.createPayPalSubscription(
-        paypalPlanId,
-        user.email,
-        user.name || user.email,
-      )
-
-      console.log("Created PayPal subscription:", subscription.id)
-
-      // Return the approval URL for the user to complete the subscription
-      const approvalLink = subscription.links?.find((link: any) => link.rel === "approve")
-
-      if (!approvalLink || !approvalLink.href) {
-        throw new Error("No approval URL found in PayPal response")
-      }
-
-      // Add the plan name to the return URL so we know which plan to activate
-      const approvalUrl = new URL(approvalLink.href)
-      approvalUrl.searchParams.append("plan", planName)
-
-      console.log("Returning approval URL:", approvalUrl.toString())
-
-      return {
-        success: true,
-        approvalUrl: approvalUrl.toString(),
-        subscriptionId: subscription.id,
-      }
-    } catch (subscriptionError) {
-      console.error("PayPal subscription creation error:", subscriptionError)
-      return {
-        success: false,
-        error: "Failed to create subscription. Please try again later or contact support.",
-      }
-    }
-  } catch (error: any) {
-    console.error("Error creating PayPal subscription:", error)
-    return { success: false, error: error.message }
-  }
-}
-
-// Activate a subscription after PayPal approval
-export async function activateSubscriptionAction(userId: number, subscriptionId: string, planName: string) {
-  try {
-    console.log(`Activating subscription for user ${userId}: ${subscriptionId}, plan: ${planName}`)
-
-    // Get user details
-    const user = await getUserById(userId)
-    if (!user) {
-      console.error("User not found:", userId)
-      return { success: false, error: "User not found" }
-    }
-
-    // Get subscription details from PayPal
-    try {
-      const subscription = await PayPalService.getPayPalSubscription(subscriptionId)
-      console.log("PayPal subscription details:", {
-        id: subscription.id,
-        status: subscription.status,
-      })
-    } catch (paypalError) {
-      console.error("Error getting PayPal subscription details:", paypalError)
-      // Continue anyway - we'll update the subscription in our database
-    }
-
-    // Default to "pro" if planName is not provided
-    const finalPlanName = planName || "pro"
-
-    // Update user subscription in database
-    console.log(`Updating user ${userId} subscription to ${finalPlanName}`)
-
-    const updateResult = await updateUserSubscription(userId, {
-      plan: finalPlanName,
-      status: "active",
-      paypalSubscriptionId: subscriptionId,
-      startDate: new Date(),
-    })
-
-    console.log("Subscription update result:", updateResult)
-
-    return { success: true }
-  } catch (error: any) {
-    console.error("Error activating subscription:", error)
-    return { success: false, error: error.message }
-  }
-}
-
-// Check if user can perform an action based on their subscription
+// Update the checkUserActionAllowedAction function to handle errors better
 export async function checkUserActionAllowedAction(userId: number, actionType: "interviews" | "results" | "retakes") {
   try {
-    // Get user details
-    const user = await getUserById(userId)
-    if (!user) {
-      return { allowed: false, error: "User not found" }
+    // Get user details with better error handling
+    let user
+    try {
+      user = await getUserById(userId)
+    } catch (userError) {
+      console.error(`Error getting user ${userId}:`, userError)
+      // Return default values if user can't be fetched
+      return {
+        allowed: true,
+        plan: "free",
+        usage: {
+          current: 0,
+          limit: 3,
+        },
+      }
     }
 
-    // Check if user can perform action
-    const allowed = await checkUserCanPerformAction(userId, actionType)
+    if (!user) {
+      console.warn(`User not found for ID: ${userId} in checkUserActionAllowedAction`)
+      return {
+        allowed: true,
+        plan: "free",
+        usage: {
+          current: 0,
+          limit: 3,
+        },
+      }
+    }
 
-    // Get usage data
-    const usage = await getUserUsageForToday(userId)
+    // Check if user can perform action with better error handling
+    let allowed = true
+    try {
+      allowed = await checkUserCanPerformAction(userId, actionType)
+    } catch (actionError) {
+      console.error(`Error checking if user ${userId} can perform action ${actionType}:`, actionError)
+      // Default to allowing the action if there's an error
+      allowed = true
+    }
 
-    // Get plan details
-    const plan = await getSubscriptionPlans().then((plans) =>
-      plans.find((p) => p.name === (user.subscription_plan || "free")),
-    )
+    // Get usage data with better error handling
+    let usage = {
+      interviews_used: 0,
+      results_viewed: 0,
+      retakes_done: 0,
+    }
 
-    // Determine limit based on action type
+    try {
+      const usageData = await getUserUsageForToday(userId)
+      if (usageData) {
+        usage = usageData
+      }
+    } catch (usageError) {
+      console.error(`Error getting usage data for user ${userId}:`, usageError)
+      // Continue with default usage values
+    }
+
+    // Get plan details with better error handling
+    let plan = {
+      name: "free",
+      features: {
+        interviewsPerDay: 3,
+        resultsPerDay: 3,
+        retakesPerDay: 3,
+      },
+    }
+
+    try {
+      const plans = await getSubscriptionPlans()
+      const foundPlan = plans.find((p) => p.name === (user.subscription_plan || "free"))
+      if (foundPlan) {
+        plan = foundPlan
+      }
+    } catch (planError) {
+      console.error(`Error getting subscription plans for user ${userId}:`, planError)
+      // Continue with default plan values
+    }
+
+    // Determine limit based on action type with null/undefined checks
     let limit = 3 // Default limit
     if (plan && plan.features) {
       if (actionType === "interviews") {
-        limit = plan.features.interviewsPerDay
+        limit = plan.features.interviewsPerDay || 3
       } else if (actionType === "results") {
-        limit = plan.features.resultsPerDay
+        limit = plan.features.resultsPerDay || 3
       } else if (actionType === "retakes") {
-        limit = plan.features.retakesPerDay
+        limit = plan.features.retakesPerDay || 3
       }
     }
 
-    // Determine current usage based on action type
+    // Determine current usage based on action type with null/undefined checks
     let current = 0
     if (usage) {
       if (actionType === "interviews") {
-        current = usage.interviews_used
+        current = usage.interviews_used || 0
       } else if (actionType === "results") {
-        current = usage.results_viewed
+        current = usage.results_viewed || 0
       } else if (actionType === "retakes") {
-        current = usage.retakes_done
+        current = usage.retakes_done || 0
       }
     }
 
@@ -238,20 +187,94 @@ export async function checkUserActionAllowedAction(userId: number, actionType: "
         limit: limit === -1 ? "unlimited" : limit,
       },
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error checking if user can perform action:", error)
-    return { allowed: true, error: error.message }
+    // Default to allowing the action if there's an error
+    return {
+      allowed: true,
+      error: "Error checking usage limits, defaulting to allowed",
+      plan: "free",
+      usage: {
+        current: 0,
+        limit: 3,
+      },
+    }
   }
 }
 
-// Increment user usage
-export async function incrementUserUsageAction(userId: number, usageType: "interviews" | "results" | "retakes") {
+// Add the missing incrementUserUsageAction function
+export async function incrementUserUsageAction(userId: number, actionType: "interviews" | "results" | "retakes") {
   try {
-    const result = await incrementUserUsage(userId, usageType)
-    return { success: true, result }
+    // Validate inputs
+    if (!userId || !actionType) {
+      return {
+        success: false,
+        error: "Missing required parameters",
+      }
+    }
+
+    // Get user details
+    const user = await getUserById(userId)
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found",
+      }
+    }
+
+    // Increment usage
+    await incrementUserUsage(userId, actionType)
+
+    return {
+      success: true,
+    }
   } catch (error: any) {
-    console.error("Error incrementing user usage:", error)
-    return { success: false, error: error.message }
+    console.error(`Error incrementing user ${userId} usage for ${actionType}:`, error)
+    return {
+      success: false,
+      error: error.message || "Failed to increment usage",
+    }
+  }
+}
+
+// Add the missing activateSubscriptionAction function
+export async function activateSubscriptionAction(userId: number, subscriptionId: string, planName: string) {
+  try {
+    // Validate inputs
+    if (!userId || !subscriptionId || !planName) {
+      return {
+        success: false,
+        error: "Missing required parameters",
+      }
+    }
+
+    // Get user details
+    const user = await getUserById(userId)
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found",
+      }
+    }
+
+    // Update user subscription
+    await updateUserSubscription(userId, {
+      plan: planName,
+      paypal_subscription_id: subscriptionId,
+      status: "active",
+      start_date: new Date(),
+      end_date: null, // Will be calculated based on billing cycle
+    })
+
+    return {
+      success: true,
+    }
+  } catch (error: any) {
+    console.error(`Error activating subscription for user ${userId}:`, error)
+    return {
+      success: false,
+      error: error.message || "Failed to activate subscription",
+    }
   }
 }
 

@@ -1,29 +1,24 @@
-import { NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const id = params.id
 
   try {
     // Generate a fallback response based on the ID
     const resourceInfo = getResourceInfo(id)
-    
-    return NextResponse.json({ 
-      success: true, 
-      data: resourceInfo 
+
+    return NextResponse.json({
+      success: true,
+      data: resourceInfo,
     })
   } catch (error: any) {
     console.error("Fallback API route error:", error)
-    
+
     // Even if there's an error, return a valid response
-    return NextResponse.json(
-      { 
-        success: true, 
-        data: `<h2>Resource: ${id}</h2><p>We're experiencing technical difficulties. Please try again later.</p>` 
-      }
-    )
+    return NextResponse.json({
+      success: true,
+      data: `<h2>Resource: ${id}</h2><p>We're experiencing technical difficulties. Please try again later.</p>`,
+    })
   }
 }
 
@@ -224,13 +219,17 @@ function getResourceInfo(id: string): string {
         <li>Be prepared for technical difficulties</li>
         <li>Follow up with a thank-you email</li>
       </ul>
-    `
+    `,
   }
 
   // Return the predefined content or a generic response
-  return resources[id] || `
+  return (
+    resources[id] ||
+    `
     <h2>Resource: ${id}</h2>
     <p>This is a generic resource page for "${id}". The specific content is not available at this time.</p>
     <p>Please check back later or explore other resources in our library.</p>
   `
+  )
 }
+

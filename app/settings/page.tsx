@@ -48,7 +48,6 @@ export default function SettingsPage() {
     setSuccess(null)
 
     try {
-       // @ts-ignore
       const result = await updateUserProfile(user.id, { name })
 
       if (result.success) {
@@ -94,7 +93,6 @@ export default function SettingsPage() {
     if (!user) return "Free"
 
     // Check both possible field names and capitalize the first letter
-     // @ts-ignore
     const plan = user.subscriptionPlan || user.subscription_plan || "free"
     return plan.charAt(0).toUpperCase() + plan.slice(1)
   }
