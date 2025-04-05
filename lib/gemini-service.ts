@@ -1,35 +1,32 @@
-"use server"
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai"
+import type { InterviewGeneratorParams, InterviewQuestion, AnswerEvaluationParams } from "./types"
 
-import { GoogleGenerativeAI } from "@google/generative-ai"
-import type { InterviewGeneratorParams, InterviewQuestion, AnswerEvaluationParams } from "@/lib/types"
-import { getGeminiApiKey } from "@/lib/server-utils"
+// Initialize the Gemini API with the API key
+const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || ""
+const genAI = new GoogleGenerativeAI(apiKey)
 
 // Safety settings to avoid harmful content
 const safetySettings = [
   {
-    category: "HARM_CATEGORY_HARASSMENT",
-    threshold: "BLOCK_MEDIUM_AND_ABOVE",
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
   },
   {
-    category: "HARM_CATEGORY_HATE_SPEECH",
-    threshold: "BLOCK_MEDIUM_AND_ABOVE",
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
   },
   {
-    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-    threshold: "BLOCK_MEDIUM_AND_ABOVE",
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
   },
   {
-    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-    threshold: "BLOCK_MEDIUM_AND_ABOVE",
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
   },
 ]
 
-// Get the model
+// Get the model - use gemini-1.5-flash as requested
 function getModel() {
-  // Use the server utility to get the API key
-  const apiKey = getGeminiApiKey()
-  const genAI = new GoogleGenerativeAI(apiKey)
-
   try {
     return genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
@@ -38,7 +35,7 @@ function getModel() {
   } catch (error) {
     console.error("Error getting gemini-1.5-flash model:", error)
 
-    // Fall back to gemini-pro if the flash model isn't available
+    // Fall back to gemini-2.0-flash if the flash model isn't available
     try {
       console.log("Falling back to gemini-2.0-flash model")
       return genAI.getGenerativeModel({
@@ -104,15 +101,17 @@ export class GeminiService {
         } catch (parseError) {
           console.error("Error parsing Gemini response:", parseError)
           console.log("Raw response:", text)
-          throw new Error("Failed to parse interview questions")
+          // Fallback to the mock implementation if parsing fails
+          return fallbackGenerateQuestions(params)
         }
       } catch (generateError) {
         console.error("Error generating content:", generateError)
-        throw new Error("Failed to generate interview questions")
+        return fallbackGenerateQuestions(params)
       }
     } catch (error) {
       console.error("Error calling Gemini API:", error)
-      throw new Error("Failed to generate interview questions")
+      // Fallback to the mock implementation
+      return fallbackGenerateQuestions(params)
     }
   }
 
@@ -175,26 +174,43 @@ export class GeminiService {
         } catch (parseError) {
           console.error("Error parsing Gemini evaluation response:", parseError)
           console.log("Raw evaluation response:", text)
-          throw new Error("Failed to parse evaluation response")
+          // Fallback to the mock implementation if parsing fails
+          return fallbackEvaluateAnswer(params)
         }
       } catch (generateError) {
         console.error("Error generating evaluation content:", generateError)
-        throw new Error("Failed to generate evaluation content")
+        return fallbackEvaluateAnswer(params)
       }
     } catch (error) {
       console.error("Error calling Gemini API for evaluation:", error)
-      throw new Error("Failed to evaluate answer")
+      // Fallback to the mock implementation
+      return fallbackEvaluateAnswer(params)
     }
   }
 
   // Generate a conversation response for the AI interviewer
   static async generateConversationResponse(message: string, context: any): Promise<string> {
     try {
-      const { previousMessages, role, level } = context
+      const { step, previousMessages, role, level } = context
+
+      // For the interview creation flow, we can use predefined responses
+      if (step >= 1 && step <= 6) {
+        const predefinedResponses = [
+          "What role are you training for?",
+          "What type of interview? Behavioral, technical, or both?",
+          "What job level are you aiming for? (Junior, Mid-level, Senior)",
+          "How many questions would you like in this interview?",
+          "What technologies should we cover? (e.g., JavaScript, React, Node.js)",
+          "Got it! I've prepared your interview. Click 'Start Interview' when you're ready.",
+        ]
+
+        return predefinedResponses[step - 1]
+      }
 
       // Get the model
       const model = getModel()
 
+      // For the actual interview, use Gemini to generate more dynamic responses
       // Construct the conversation history
       let conversationContext = ""
       if (previousMessages && previousMessages.length > 0) {
@@ -231,6 +247,79 @@ export class GeminiService {
       // Fallback response
       return "I'm here to help you prepare for your interview. What would you like to know?"
     }
+  }
+}
+
+// Fallback functions in case the API fails
+function fallbackGenerateQuestions(params: InterviewGeneratorParams): InterviewQuestion[] {
+  const { role, type, level, questionCount, technologies } = params
+
+  // Sample questions based on parameters (simplified version of the mock implementation)
+  const technicalQuestions = [
+    `Explain how you would implement a responsive design for a complex dashboard.`,
+    `Describe your approach to optimizing the performance of a web application that's loading slowly.`,
+    `How would you structure a full-stack project to ensure scalability and maintainability?`,
+    `Explain the concept of data structures and provide a practical example.`,
+    `How would you implement authentication and authorization in a web application?`,
+  ]
+
+  const behavioralQuestions = [
+    `Tell me about a complex project you led. What challenges did you face, and how did you overcome them?`,
+    `Describe a situation where you had to make a difficult technical decision. How did you approach it?`,
+    `Tell me about a time when you had to work under a tight deadline. How did you manage your time and priorities?`,
+    `Describe a situation where you had to collaborate with a difficult team member. How did you handle it?`,
+    `Tell me about a time when you received critical feedback. How did you respond to it?`,
+  ]
+
+  // Select questions based on type
+  let questions: string[] = []
+
+  if (type === "technical") {
+    questions = technicalQuestions.slice(0, questionCount)
+  } else if (type === "behavioral") {
+    questions = behavioralQuestions.slice(0, questionCount)
+  } else {
+    // Mixed - alternate between technical and behavioral
+    for (let i = 0; i < questionCount; i++) {
+      if (i % 2 === 0) {
+        questions.push(technicalQuestions[Math.floor(i / 2) % technicalQuestions.length])
+      } else {
+        questions.push(behavioralQuestions[Math.floor(i / 2) % behavioralQuestions.length])
+      }
+    }
+  }
+
+  // Format as InterviewQuestion objects
+  return questions.map((question) => ({
+    question,
+    type: question.includes("Tell me about") || question.includes("Describe a situation") ? "behavioral" : "technical",
+  }))
+}
+
+function fallbackEvaluateAnswer(params: AnswerEvaluationParams): any {
+  const { answer } = params
+
+  // Basic analysis of the answer
+  const wordCount = answer.split(/\s+/).length
+
+  // Calculate a basic score based on length
+  let score = 0
+  if (wordCount > 200) {
+    score = 80
+  } else if (wordCount > 100) {
+    score = 60
+  } else if (wordCount > 50) {
+    score = 40
+  } else {
+    score = 20
+  }
+
+  return {
+    score,
+    strengths: ["Attempted to answer the question"],
+    improvements: ["Provide more detailed responses"],
+    detailedFeedback:
+      "This is a fallback evaluation because the AI service is currently unavailable. Try again later for a more detailed assessment.",
   }
 }
 

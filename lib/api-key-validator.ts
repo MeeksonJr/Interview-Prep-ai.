@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
-// This function should only be called server-side
 export async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
   if (!apiKey) return false
 
@@ -18,7 +17,7 @@ export async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
     } catch (flashError) {
       console.error("Error validating with gemini-1.5-flash:", flashError)
 
-      // Fall back to gemini-2.0-flash if flash isn't available
+      // Fall back to gemini-pro if flash isn't available
       try {
         const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
         const fallbackResult = await fallbackModel.generateContent("Test")
@@ -27,7 +26,7 @@ export async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
 
         return fallbackText.length > 0
       } catch (proError) {
-        console.error("Error validating with gemini-2.0-flash:", proError)
+        console.error("Error validating with gemini-pro:", proError)
         return false
       }
     }
@@ -37,5 +36,7 @@ export async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
   }
 }
 
-// No environment variable references here
+export function getGeminiApiKey(): string {
+  return process.env.NEXT_PUBLIC_GEMINI_API_KEY || ""
+}
 

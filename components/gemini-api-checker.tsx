@@ -1,22 +1,39 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
-import { checkGeminiApiConfigured } from "@/app/actions/api-actions"
+import { useEffect, useState } from "react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { validateGeminiApiKey, getGeminiApiKey } from "@/lib/api-key-validator"
+import { AlertCircle, CheckCircle, Info } from "lucide-react"
 
 export function GeminiApiChecker() {
-  const [isConfigured, setIsConfigured] = useState<boolean | null>(null)
+  const [isValid, setIsValid] = useState<boolean | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     async function checkApiKey() {
       try {
-        // Use the server action to check if the API key is configured
-        const configured = await checkGeminiApiConfigured()
-        setIsConfigured(configured)
-      } catch (error) {
+        const apiKey = getGeminiApiKey()
+
+        if (!apiKey) {
+          setIsValid(false)
+          setErrorMessage(
+            "Gemini API key is missing. Please add NEXT_PUBLIC_GEMINI_API_KEY to your environment variables.",
+          )
+          setIsLoading(false)
+          return
+        }
+
+        const valid = await validateGeminiApiKey(apiKey)
+        setIsValid(valid)
+
+        if (!valid) {
+          setErrorMessage("Gemini API key validation failed. The key may be invalid or the service may be unavailable.")
+        }
+      } catch (error: any) {
         console.error("Error checking Gemini API key:", error)
-        setIsConfigured(false)
+        setIsValid(false)
+        setErrorMessage(error.message || "Unknown error validating Gemini API key")
       } finally {
         setIsLoading(false)
       }
@@ -27,21 +44,32 @@ export function GeminiApiChecker() {
 
   if (isLoading) {
     return (
-      <Alert className="mb-4">
+      <Alert className="mb-4 bg-yellow-500/10 border-yellow-500/20 text-yellow-400">
+        <Info className="h-4 w-4" />
         <AlertTitle>Checking Gemini API configuration...</AlertTitle>
-        <AlertDescription>Please wait while we verify the API configuration.</AlertDescription>
+        <AlertDescription>Please wait while we verify your Gemini API key.</AlertDescription>
       </Alert>
     )
   }
 
-  if (isConfigured === false) {
+  if (isValid === false) {
     return (
-      <Alert variant="destructive" className="mb-4">
-        <AlertTitle>Gemini API Not Configured</AlertTitle>
+      <Alert className="mb-4 bg-red-500/10 border-red-500/20 text-red-400">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Gemini API Key Issue</AlertTitle>
         <AlertDescription>
-          The Gemini API key is not configured. Please add the GEMINI_API_KEY environment variable to enable AI
-          features.
+          {errorMessage || "Your Gemini API key is missing or invalid. Some AI features may not work correctly."}
         </AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (isValid === true) {
+    return (
+      <Alert className="mb-4 bg-green-500/10 border-green-500/20 text-green-400">
+        <CheckCircle className="h-4 w-4" />
+        <AlertTitle>Gemini API Connected</AlertTitle>
+        <AlertDescription>Your Gemini API key is valid and connected. AI features are ready to use.</AlertDescription>
       </Alert>
     )
   }

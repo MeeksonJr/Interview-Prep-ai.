@@ -1,10 +1,10 @@
 import type { AnswerEvaluationParams } from "./types"
-import { evaluateAnswer as geminiEvaluateAnswer } from "@/app/actions/gemini-actions"
+import { GeminiService } from "./gemini-service"
 
 export async function evaluateAnswer(params: AnswerEvaluationParams): Promise<any> {
   try {
-    // Use the evaluateAnswer function from gemini-actions
-    return await geminiEvaluateAnswer(params)
+    // Use the Gemini service to evaluate the answer
+    return await GeminiService.evaluateAnswer(params)
   } catch (error) {
     console.error("Error evaluating answer:", error)
     // Return a basic evaluation if there's an error

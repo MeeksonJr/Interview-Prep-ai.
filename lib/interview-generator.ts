@@ -1,15 +1,13 @@
 import type { InterviewGeneratorParams, InterviewQuestion } from "./types"
+import { GeminiService } from "./gemini-service"
 
 // This function now uses the Gemini API for generating interview questions
 export async function generateInterviewQuestions(params: InterviewGeneratorParams): Promise<InterviewQuestion[]> {
   console.log("Generating interview questions with params:", params)
 
   try {
-    // Import the GeminiService dynamically to ensure it's loaded properly
-    const { generateInterviewQuestions } = await import("@/app/actions/gemini-actions")
-
-    // Use the server action to generate questions
-    const questions = await generateInterviewQuestions(params)
+    // Use the Gemini service to generate questions
+    const questions = await GeminiService.generateInterviewQuestions(params)
     console.log("Generated questions:", questions)
     return questions
   } catch (error) {
