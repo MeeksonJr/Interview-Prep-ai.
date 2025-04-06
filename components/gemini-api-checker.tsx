@@ -19,7 +19,7 @@ export function GeminiApiChecker() {
         if (!apiKey) {
           setIsValid(false)
           setErrorMessage(
-            "Gemini API key is missing. Please add NEXT_PUBLIC_GEMINI_API_KEY to your environment variables.",
+            "AI API key is missing. Please add NEXT_PUBLIC_GEMINI_API_KEY to your environment variables.",
           )
           setIsLoading(false)
           return
@@ -29,7 +29,7 @@ export function GeminiApiChecker() {
         setIsValid(valid)
 
         if (!valid) {
-          setErrorMessage("Gemini API key validation failed. The key may be invalid or the service may be unavailable.")
+          setErrorMessage("AI API key validation failed. The key may be invalid or the service may be unavailable.")
         } else {
           setSuccessMessage("AI connected, Enjoy interviewing")
           setTimeout(() => {
@@ -37,9 +37,9 @@ export function GeminiApiChecker() {
           }, 3000) // Hide after 3 seconds
         }
       } catch (error: any) {
-        console.error("Error checking Gemini API key:", error)
+        console.error("Error checking AI API key:", error)
         setIsValid(false)
-        setErrorMessage(error.message || "Unknown error validating Gemini API key")
+        setErrorMessage(error.message || "Unknown error validating AI API key")
       } finally {
         setIsLoading(false)
       }
@@ -52,8 +52,8 @@ export function GeminiApiChecker() {
     return (
       <Alert className="mb-4 bg-yellow-500/10 border-yellow-500/20 text-yellow-400">
         <Info className="h-4 w-4" />
-        <AlertTitle>Checking Gemini API configuration...</AlertTitle>
-        <AlertDescription>Please wait while we verify your Gemini API key.</AlertDescription>
+        <AlertTitle>Checking AI API configuration...</AlertTitle>
+        <AlertDescription>Please wait while we verify our API key.</AlertDescription>
       </Alert>
     )
   }
@@ -62,9 +62,9 @@ export function GeminiApiChecker() {
     return (
       <Alert className="mb-4 bg-red-500/10 border-red-500/20 text-red-400">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Gemini API Key Issue</AlertTitle>
+        <AlertTitle>AI API Key Issue</AlertTitle>
         <AlertDescription>
-          {errorMessage || "Your Gemini API key is missing or invalid. Some AI features may not work correctly."}
+          {errorMessage || "Your API key is missing or invalid. Some AI features may not work correctly."}
         </AlertDescription>
       </Alert>
     )
@@ -74,7 +74,7 @@ export function GeminiApiChecker() {
     return (
       <Alert className="mb-4 bg-green-500/10 border-green-500/20 text-green-400">
         <CheckCircle className="h-4 w-4" />
-        <AlertTitle>Gemini API Connected</AlertTitle>
+        <AlertTitle>AI API Connected</AlertTitle>
         <AlertDescription>{successMessage}</AlertDescription>
       </Alert>
     )
