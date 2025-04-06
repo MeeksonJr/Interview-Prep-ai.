@@ -34,7 +34,7 @@ async function getActiveModelName(apiKey: string): Promise<string> {
       try {
         const proModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
         await proModel.generateContent("test")
-        return "gemini-pro"
+        return "gemini-2.0-flash"
       } catch (proError) {
         return "unknown"
       }

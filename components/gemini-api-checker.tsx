@@ -9,6 +9,7 @@ export function GeminiApiChecker() {
   const [isValid, setIsValid] = useState<boolean | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   useEffect(() => {
     async function checkApiKey() {
@@ -29,6 +30,11 @@ export function GeminiApiChecker() {
 
         if (!valid) {
           setErrorMessage("Gemini API key validation failed. The key may be invalid or the service may be unavailable.")
+        } else {
+          setSuccessMessage("AI connected, Enjoy interviewing")
+          setTimeout(() => {
+            setSuccessMessage(null)
+          }, 3000) // Hide after 3 seconds
         }
       } catch (error: any) {
         console.error("Error checking Gemini API key:", error)
@@ -64,12 +70,12 @@ export function GeminiApiChecker() {
     )
   }
 
-  if (isValid === true) {
+  if (isValid === true && successMessage) {
     return (
       <Alert className="mb-4 bg-green-500/10 border-green-500/20 text-green-400">
         <CheckCircle className="h-4 w-4" />
         <AlertTitle>Gemini API Connected</AlertTitle>
-        <AlertDescription>Your Gemini API key is valid and connected. AI features are ready to use.</AlertDescription>
+        <AlertDescription>{successMessage}</AlertDescription>
       </Alert>
     )
   }

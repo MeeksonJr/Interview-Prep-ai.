@@ -159,7 +159,15 @@ export async function checkUserActionAllowedAction(userId: number, actionType: "
     let limit = 3 // Default limit
     if (plan && plan.features) {
       if (actionType === "interviews") {
-        limit = plan.features.interviewsPerDay || 3
+        if (plan.name === "free") {
+          limit = 10
+        } else if (plan.name === "pro") {
+          limit = 50
+        } else if (plan.name === "premium") {
+          limit = -1 // Unlimited
+        } else {
+          limit = plan.features.interviewsPerDay || 3
+        }
       } else if (actionType === "results") {
         limit = plan.features.resultsPerDay || 3
       } else if (actionType === "retakes") {
