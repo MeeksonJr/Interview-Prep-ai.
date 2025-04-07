@@ -589,7 +589,23 @@ export async function getSubscriptionPlans() {
       ORDER BY price ASC
     `
 
-    return result
+    // Add the daily interview limit to the plan details
+    const plansWithLimits = result.map((plan: any) => {
+      let dailyInterviewLimit = 3 // Default for free plan
+
+      if (plan.name === "pro") {
+        dailyInterviewLimit = 50
+      } else if (plan.name === "premium") {
+        dailyInterviewLimit = -1 // Unlimited
+      }
+
+      return {
+        ...plan,
+        dailyInterviewLimit,
+      }
+    })
+
+    return plansWithLimits
   } catch (error) {
     console.error("Error getting subscription plans:", error)
     throw error

@@ -9,6 +9,8 @@ import {
 import { generateInterviewQuestions as libGenerateInterviewQuestions } from "@/lib/interview-generator"
 import { sql } from "@/lib/db"
 import { generateInterviewFromJobDescription } from "@/lib/ai-interview-generator"
+import { getUserById } from "@/lib/db" // Import getUserById
+import { format } from "date-fns"
 
 // Interview-related actions
 export async function createInterview(interviewData: any) {
@@ -54,6 +56,32 @@ export async function createInterviewFromJobDescription({
   technologies: string[]
 }) {
   try {
+    // Get the user
+    const user = await getUserById(userId)
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    // Check if the user has reached their daily interview limit
+    const today = new Date()
+    const formattedDate = format(today, "yyyy-MM-dd")
+
+    const usageResult = await sql`
+     SELECT interviews_used_today, daily_interview_limit
+     FROM users
+     WHERE id = ${userId}
+   `
+
+    if (!usageResult || usageResult.length === 0) {
+      throw new Error("Failed to retrieve user usage data")
+    }
+
+    const { interviews_used_today, daily_interview_limit } = usageResult[0]
+
+    if (daily_interview_limit !== -1 && interviews_used_today >= daily_interview_limit) {
+      throw new Error("You have reached your daily interview limit. Upgrade your plan for more.")
+    }
+
     // Generate interview questions using AI
     const generatedInterview = await generateInterviewFromJobDescription({
       jobDescription,
@@ -68,36 +96,43 @@ export async function createInterviewFromJobDescription({
 
     // Insert the interview into the database
     const result = await sql`
-      INSERT INTO interviews (
-        user_id, 
-        title, 
-        role, 
-        type, 
-        level, 
-        questions, 
-        technologies,
-        job_description,
-        created_at
-      )
-      VALUES (
-        ${userId}, 
-        ${jobTitle || generatedInterview.title}, 
-        ${generatedInterview.role}, 
-        ${type}, 
-        ${generatedInterview.level}, 
-        ${JSON.stringify(generatedInterview.questions)}, 
-        ${technologies},
-        ${jobDescription},
-        NOW()
-      )
-      RETURNING id
-    `
+     INSERT INTO interviews (
+       user_id, 
+       title, 
+       role, 
+       type, 
+       level, 
+       questions, 
+       technologies,
+       job_description,
+       created_at
+     )
+     VALUES (
+       ${userId}, 
+       ${jobTitle || generatedInterview.title}, 
+       ${generatedInterview.role}, 
+       ${type}, 
+       ${generatedInterview.level}, 
+       ${JSON.stringify(generatedInterview.questions)}, 
+       ${technologies},
+       ${jobDescription},
+       NOW()
+     )
+     RETURNING id
+   `
 
     if (!result || result.length === 0) {
       throw new Error("Failed to create interview in database")
     }
 
     const interviewId = result[0].id
+
+    // Increment the user's interviews_used_today count
+    await sql`
+     UPDATE users
+     SET interviews_used_today = interviews_used_today + 1
+     WHERE id = ${userId}
+   `
 
     return {
       success: true,
@@ -121,17 +156,17 @@ export async function fetchInterviewById(interviewId: number) {
     }
 
     const result = await sql`
-      SELECT 
-        i.*,
-        u.name as user_name,
-        u.email as user_email
-      FROM 
-        interviews i
-      LEFT JOIN 
-        users u ON i.user_id = u.id
-      WHERE 
-        i.id = ${interviewId}
-    `
+     SELECT 
+       i.*,
+       u.name as user_name,
+       u.email as user_email
+     FROM 
+       interviews i
+     LEFT JOIN 
+       users u ON i.user_id = u.id
+     WHERE 
+       i.id = ${interviewId}
+   `
 
     if (!result || result.length === 0) {
       return { success: false, error: "Interview not found" }
@@ -147,29 +182,6 @@ export async function fetchInterviewById(interviewId: number) {
       success: false,
       error: error.message || "Failed to fetch interview",
     }
-  }
-}
-
-// Add the deleteInterview action
-export async function deleteInterviewAction(interviewId: number, userId: number) {
-  try {
-    console.log(`Deleting interview ${interviewId} for user ${userId}`)
-
-    // Delete the interview from the database
-    const result = await sql`
-      DELETE FROM interviews
-      WHERE id = ${interviewId} AND user_id = ${userId}
-      RETURNING id
-    `
-
-    if (!result || result.length === 0) {
-      return { success: false, error: "Interview not found or you don't have permission to delete it" }
-    }
-
-    return { success: true, message: "Interview deleted successfully" }
-  } catch (error: any) {
-    console.error("Error deleting interview:", error)
-    return { success: false, error: error.message || "Failed to delete interview" }
   }
 }
 

@@ -16,6 +16,9 @@ export const users = pgTable("users", {
   paypalSubscriptionId: varchar("paypal_subscription_id", { length: 255 }),
   paypalCustomerId: varchar("paypal_customer_id", { length: 255 }),
   profileImageUrl: varchar("profile_image_url", { length: 255 }),
+  // New fields for interview limits
+  dailyInterviewLimit: integer("daily_interview_limit").default(3), // Default to 3 for free
+  interviewsUsedToday: integer("interviews_used_today").default(0),
 })
 
 export const interviews = pgTable("interviews", {

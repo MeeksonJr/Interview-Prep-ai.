@@ -14,6 +14,14 @@ export async function runMigrations() {
     `
     console.log("Added new fields to interviews table")
 
+    // Add new columns to users table for interview limits
+    await sql`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS daily_interview_limit INTEGER DEFAULT 3,
+      ADD COLUMN IF NOT EXISTS interviews_used_today INTEGER DEFAULT 0
+    `
+    console.log("Added daily_interview_limit and interviews_used_today columns to users table")
+
     // Create interview_likes table
     await sql`
       CREATE TABLE IF NOT EXISTS interview_likes (
