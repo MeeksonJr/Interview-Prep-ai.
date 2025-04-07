@@ -213,7 +213,7 @@ export default function Home() {
             <Card className="gradient-border bg-gray-800 text-white hover:bg-gray-700 transition-colors">
               <CardContent className="p-6 space-y-4">
                 <div className="rounded-full bg-white/5 p-3 w-12 h-12 flex items-center justify-center">
-                  <Brain className="h-6 w-6 text-white" />
+                  {/* <Brain className="h-6 w-6 text-white" /> */}
                 </div>
                 <h3 className="text-xl font-semibold">AI-Powered Content</h3>
                 <p className="text-muted-foreground">
