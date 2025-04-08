@@ -569,7 +569,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
               <div className="flex items-start gap-4">
                 <Avatar className="mt-1">
-                  <AvatarImage src="/feedback-avatar.png" />
+                  <AvatarImage src="/ai-assistant.png" />
                   <AvatarFallback>FB</AvatarFallback>
                 </Avatar>
                 <div className="space-y-2 flex-1">
