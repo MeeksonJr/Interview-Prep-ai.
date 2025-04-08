@@ -7,8 +7,7 @@ import bcrypt from "bcryptjs"
 import { retryWithBackoff } from "./db-retry"
 
 // Updated connection string
-export const connectionString =
-  "postgresql://interview-prep-ai_owner:npg_gXVUIB8yYG2R@ep-silent-frost-a51pb9r1.us-east-2.aws.neon.tech/interview-prep-ai?sslmode=require"
+export const connectionString =process.env.NEXT_PUBLIC_connection_StringL || ""
 
 // Create a SQL query function with better error handling
 const createSqlClient = () => {

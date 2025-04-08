@@ -1,9 +1,9 @@
 // This file contains functions for interacting with the PayPal API
 
 // PayPal API credentials
-const PAYPAL_CLIENT_ID = "ARQR8KMPxuqn4obXkPyzOcssn5kuJV251NR-XM5_mwB1id5joWCqAFqv573hsOeU3tEg3Zr7aO_tlEj4"
-const PAYPAL_CLIENT_SECRET = "EAjmka0sP_035eWq7ZrbgVSthJkK-AoJRKy8cwrTB4io76caJ2YWstpv8iz0diz_vI6xIHBTWj_mvUrp"
-const PAYPAL_API_BASE = "https://api-m.sandbox.paypal.com" // Use sandbox for testing
+const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ""
+const PAYPAL_CLIENT_SECRET = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_SECRET || ""
+const PAYPAL_API_BASE = process.env.NEXT_PUBLIC_PAYPAL_API_BASE || "https://api-m.sandbox.paypal.com" // Use sandbox for testing, later chnage to live api base after paypal verification
 
 // Function to get an access token from PayPal
 async function getPayPalAccessToken() {

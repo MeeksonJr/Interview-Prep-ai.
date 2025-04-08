@@ -1,8 +1,7 @@
 import { neon } from "@neondatabase/serverless"
 
 // Updated connection string - note the removal of -pooler from the URL
-export const connectionString =
-  "postgresql://interview-prep-ai_owner:npg_gXVUIB8yYG2R@ep-silent-frost-a51pb9r1.us-east-2.aws.neon.tech/interview-prep-ai?sslmode=require"
+export const connectionString = process.env.NEXT_PUBLIC_connection_StringL || ""
 
 export async function checkDatabaseConnection() {
   try {
